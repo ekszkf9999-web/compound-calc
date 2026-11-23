@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f2f5fa" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a0d13" media="(prefers-color-scheme: dark)">
+<meta name="description" content="예금과 주식 항목을 각각 입력해 복리로 합산하는 포트폴리오 복리 계산기. 목표 역산과 시나리오 비교를 지원합니다.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="복리 계산기">
+<title>포트폴리오 복리 계산기</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+
+  <header class="appbar">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 17.5 8.5 12l3.5 3.2L21 6"></path>
+          <path d="M21 11V6h-5"></path>
+        </svg>
+      </div>
+      <div style="min-width:0">
+        <h1>포트폴리오 복리 계산기</h1>
+        <p class="sub" id="appSub">예금·주식을 항목별로 나눠 계산</p>
+      </div>
+    </div>
+    <button class="icon-btn" id="themeBtn" type="button" aria-label="화면 테마 바꾸기" title="테마: 자동">
+      <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z"></path>
+      </svg>
+    </button>
+  </header>
+
+  <main>
+    <!-- ================= 탭 1 : 통합 계산 ================= -->
+    <section class="tabpanel on" id="panel-calc">
+
+      <section class="card" id="periodCard">
+        <div class="card-head" style="margin-bottom:8px">
+          <h2>계산 기간</h2>
+          <span class="pill" id="yearsPill">20년</span>
+        </div>
+        <input type="range" class="range" id="yearsRange" min="1" max="50" step="1" value="20" aria-label="투자 기간 년">
+        <div class="grid2">
+          <label class="field">
+            <span>기간</span>
+            <div class="input-unit"><input id="yearsNum" type="number" inputmode="numeric" min="1" max="50" step="1" value="20"><em>년</em></div>
+          </label>
+          <label class="field">
+            <span>물가상승률 (연)</span>
+            <div class="input-unit"><input id="inflationNum" type="number" inputmode="decimal" min="0" max="20" step="0.1" value="2.5"><em>%</em></div>
+          </label>
+        </div>
+        <label class="checkline">
+          <span class="check"><input type="checkbox" id="inflationOn" checked><i></i></span>
+          물가를 반영한 실질 가치도 함께 보기
+        </label>
+      </section>
+
+      <section class="card" id="portfolioCard">
+        <div class="card-head">
+          <div>
+            <h2>내 포트폴리오</h2>
+            <p class="sub" id="portfolioSum">불러오는 중…</p>
+          </div>
+          <button class="btn tiny ghost" id="collapseAllBtn" type="button" hidden>모두 접기</button>
+        </div>
+        <div class="item-list" id="itemList"></div>
+        <button class="btn add" id="addItemBtn" type="button"><span>＋</span> 새 항목 추가</button>
+        <p class="hint">항목을 누르면 이름·보유금·월 적립금·수익률·과세 방식을 바꿀 수 있습니다. 스위치를 끄면 계산에서 빠집니다.</p>
+      </section>
+
+      <section class="card summary" id="summaryCard"></section>
+
+      <section class="card" id="allocCard">
+        <div class="card-head">
+          <h2>예금 vs 주식 · 항목별 결과</h2>
+          <span class="pill" id="allocPill">비중</span>
+        </div>
+        <div class="bar-stack" id="allocBar"></div>
+        <div class="bar-sum" id="allocSum"></div>
+        <div class="alloc-list" id="allocList"></div>
+      </section>
+
+      <section class="card" id="chartCard">
+        <div class="card-head">
+          <h2>자산 성장</h2>
+          <div class="mode-toggle">
+            <button type="button" id="modeSplit" class="on">원금 vs 수익</button>
+            <button type="button" id="modeStack">항목별 누적</button>
+          </div>
+        </div>
+        <div class="chart-wrap" id="chartHost"></div>
+        <div class="legend" id="chartLegend"></div>
+        <div class="chart-detail" id="chartDetail"></div>
+        <p class="hint" style="margin-top:8px">막대를 누르면 그 연도의 금액을 볼 수 있습니다.</p>
+      </section>
+
+      <section class="card" id="goalCard">
+        <div class="card-head">
+          <h2>목표 달성 마일스톤</h2>
+          <button class="btn tiny ghost" id="goalAddBtn" type="button">＋ 목표</button>
+        </div>
+        <div class="goal-list" id="goalList"></div>
+        <div class="goal-form" id="goalForm">
+          <div class="input-unit" style="flex:1">
+            <input id="goalInput" type="number" inputmode="numeric" min="1" placeholder="목표 금액" aria-label="목표 금액 만원">
+            <em>만원</em>
+          </div>
+          <button class="btn primary" id="goalSave" type="button">추가</button>
+          <button class="btn ghost" id="goalCancel" type="button">취소</button>
+        </div>
+        <p class="hint">60년까지 이어서 계산해 도달 시점을 찾습니다. 기간 밖의 시점은 흐리게 표시됩니다.</p>
+      </section>
+
+      <section class="card" id="tableCard">
+        <div class="card-head">
+          <div>
+            <h2>연도별 상세</h2>
+            <p class="sub" id="tableCount"></p>
+          </div>
+          <select class="sel" id="tableFilter" aria-label="연도별 상세 항목 필터"></select>
+        </div>
+        <div class="table-wrap">
+          <div class="table-scroll">
+            <table class="dt">
+              <thead>
+                <tr><th>연차</th><th>연도</th><th>원금</th><th>복리 수익</th><th>총자산</th></tr>
+              </thead>
+              <tbody id="tableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <!-- ================= 탭 2 : 목표 역산 ================= -->
+    <section class="tabpanel" id="panel-reverse">
+      <section class="card" id="rvInputCard">
+        <div class="card-head">
+          <h2>목표 역산기</h2>
+          <span class="pill">월 납입액 계산</span>
+        </div>
+        <label class="field">
+          <span>목표 금액</span>
+          <div class="input-unit"><input id="rvTarget" type="text" inputmode="numeric" autocomplete="off" value="100,000" aria-label="목표 금액 만원"><em>만원</em></div>
+        </label>
+        <div class="chips" id="rvChips">
+          <button type="button" data-rv-set="10000">1억</button>
+          <button type="button" data-rv-set="50000">5억</button>
+          <button type="button" data-rv-set="100000">10억</button>
+          <button type="button" data-rv-set="300000">30억</button>
+          <button type="button" data-rv-set="600000">60억</button>
+        </div>
+        <p class="hint" id="rvTargetHint" style="margin-top:6px"></p>
+        <div class="grid2" style="margin-top:11px">
+          <label class="field">
+            <span>목표 기간</span>
+            <div class="input-unit"><input id="rvYears" type="number" inputmode="numeric" min="1" max="50" step="1" value="20"><em>년</em></div>
+          </label>
+          <label class="field">
+            <span>예상 연 수익률</span>
+            <div class="input-unit"><input id="rvRate" type="number" inputmode="decimal" min="0" max="30" step="0.1" value="9"><em>%</em></div>
+          </label>
+        </div>
+        <label class="checkline">
+          <span class="check"><input type="checkbox" id="rvInclude" checked><i></i></span>
+          현재 보유금을 시작 금액으로 포함
+        </label>
+      </section>
+
+      <section class="card result-card" id="rvResult"></section>
+
+      <section class="card" id="rvAllocCard">
+        <div class="card-head">
+          <div>
+            <h2>현재 비중대로 나눈다면</h2>
+            <p class="sub">필요한 월 납입액을 항목 비중대로 배분한 금액</p>
+          </div>
+        </div>
+        <div id="rvAlloc"></div>
+      </section>
+
+      <section class="card">
+        <h2 style="font-size:13px;font-weight:800;margin-bottom:6px">계산 가정</h2>
+        <div class="note" id="rvNote"></div>
+      </section>
+    </section>
+
+    <!-- ================= 탭 3 : 시나리오 ================= -->
+    <section class="tabpanel" id="panel-scenario">
+      <section class="card">
+        <div class="card-head">
+          <div>
+            <h2>시나리오 저장</h2>
+            <p class="sub">지금 포트폴리오 구성을 이름 붙여 저장합니다 · 최대 5개</p>
+          </div>
+          <span class="pill" id="scCount">0 / 5</span>
+        </div>
+        <div style="display:flex;gap:8px">
+          <div class="input-unit" style="flex:1">
+            <input id="scName" type="text" maxlength="20" placeholder="예: 공격형 (나스닥 비중↑)" aria-label="시나리오 이름" style="font-weight:600;font-size:14px">
+          </div>
+          <button class="btn primary" id="scSave" type="button" style="flex:0 0 auto">저장</button>
+        </div>
+        <p class="hint" id="scHint">현재 항목·기간·물가 설정이 그대로 저장됩니다.</p>
+      </section>
+
+      <section class="card" id="scListCard">
+        <div class="card-head">
+          <h2>저장한 시나리오</h2>
+          <span class="pill" id="scCmpCount">비교 0 / 2</span>
+        </div>
+        <div class="sc-list" id="scList"></div>
+      </section>
+
+      <section class="card" id="scCompareCard" hidden>
+        <div class="card-head">
+          <h2>두 시나리오 비교</h2>
+          <span class="pill" id="cmpPill"></span>
+        </div>
+        <div id="scCompare"></div>
+      </section>
+
+      <section class="card">
+        <h2 style="font-size:13px;font-weight:800;margin-bottom:8px">앱 정보</h2>
+        <div class="kv" style="margin-top:0;border-top:0">
+          <div class="r"><span>저장 방식</span><b>이 기기에만 저장</b></div>
+          <div class="r"><span>계산 방식</span><b>월 단위 복리 · 기말 납입</b></div>
+          <div class="r"><span>과세</span><b>수익금 만기 일시 과세</b></div>
+        </div>
+        <p class="hint">입력한 값은 서버로 보내지 않고 브라우저(localStorage)에만 저장됩니다. 생년월일·실명 등 개인정보는 쓰지 않습니다.</p>
+        <button class="btn ghost wide" id="resetBtn" type="button" style="margin-top:10px;color:var(--bad)">모든 데이터 초기화</button>
+      </section>
+
+      <p class="footnote">
+        본 계산기는 입력값에 따른 단순 추정치이며 투자 권유가 아닙니다.<br>
+        세금은 수익금에 대한 만기 일시 과세로 단순화했고, 수익률은 미래를 보장하지 않습니다.
+      </p>
+    </section>
+  </main>
+
+  <nav class="tabbar" aria-label="탭">
+    <button type="button" class="on" data-tab="calc" aria-current="page">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 19V5"></path><path d="M4 19h16"></path>
+        <rect x="7" y="12" width="3.4" height="7" rx="1"></rect>
+        <rect x="13.6" y="8" width="3.4" height="11" rx="1"></rect>
+      </svg>
+      <span>통합 계산</span>
+    </button>
+    <button type="button" data-tab="reverse">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="8.5"></circle><circle cx="12" cy="12" r="4.6"></circle><circle cx="12" cy="12" r="1"></circle>
+      </svg>
+      <span>목표 역산</span>
+    </button>
+    <button type="button" data-tab="scenario">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3.5 21 8.5l-9 5-9-5z"></path><path d="M3 13.2 12 18l9-4.8"></path><path d="M3 17.4 12 22l9-4.6"></path>
+      </svg>
+      <span>시나리오</span>
+    </button>
+  </nav>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
